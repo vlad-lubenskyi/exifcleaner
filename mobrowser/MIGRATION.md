@@ -44,6 +44,7 @@ directory is a separate, self-contained MōBrowser project.
 | `chore(mobrowser): scaffold …` | Unmodified `create-mobrowser-app` output. |
 | `chore(mobrowser): copy ExifCleaner sources …` | Verbatim copies into the new layout; removes the template's demo app. Does not build. |
 | `feat(mobrowser): port ExifCleaner …` | Build config, IPC contract, main-process port, renderer adapter, resources, tests, docs. |
+| `chore(mobrowser): track package-lock.json` | Re-includes the npm lockfile, which the root `.gitignore` excludes for the yarn-based Electron app. |
 
 ## 3. Project layout: where every file went
 
