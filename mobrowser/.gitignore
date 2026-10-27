@@ -14,3 +14,6 @@ gen/
 
 # macOS metadata.
 .DS_Store
+
+# The repository root ignores package-lock.json (yarn); this project uses npm.
+!package-lock.json
