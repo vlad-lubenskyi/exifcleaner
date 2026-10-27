@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+// Every command the application menu can send to the renderer. The main process
+// builds a menu item for each; the renderer runs it. Add a value per command (a
+// choice like a sort order gets one value per option, or a typed field on
+// MenuCommand), and never reuse a number.
+enum Command {
+  COMMAND_UNSPECIFIED = 0;
+}
+
+// A command chosen from the application menu (or its keyboard shortcut).
+message MenuCommand {
+  Command command = 1;
+}
+
+// What the renderer is showing, so the menu can enable, label, and check its
+// items. An item is enabled only when choosing it would act: the renderer
+// computes each flag with the same check its command handler runs. Add one
+// field per guard your commands need.
+message MenuState {
+  // The main screen has loaded (data included) and can run commands.
+  bool ready = 1;
+  // A dialog is open; no command runs behind it.
+  bool modal = 2;
+}
+
+service MenuService {
+  // The runtime-owned stream of chosen commands; the main window subscribes to
+  // it.
+  rpc OnCommand(google.protobuf.Empty) returns (stream MenuCommand);
+  // The renderer reports its state; the menu enables and labels its items from
+  // it.
+  rpc SetState(MenuState) returns (google.protobuf.Empty);
+  // Runs a command in the main window as if it were chosen from the menu, for
+  // windows that don't hold the app's data (the Settings window). Brings the
+  // main window forward.
+  rpc Dispatch(MenuCommand) returns (google.protobuf.Empty);
+}
