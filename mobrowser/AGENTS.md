@@ -294,86 +294,27 @@ refactors, and when running or debugging tests, read `.agents/skills/mobrowser-t
 <!-- Everything below is hand-written project guidance. The blocks above are managed by the
      MōBrowser CLI — don't edit them by hand, they get regenerated. -->
 
-# Project skills — read before you write code
+# ExifCleaner on MōBrowser
 
-This project's rules live in **skill files under `.agents/skills/`**, not in this document. Each
-`SKILL.md` is the single source of truth for its area; this file only tells you *which* one to open
-and *when*. **Read the relevant `SKILL.md` first** — don't work from memory of shadcn/ui, Base UI, or
-MōBrowser, all of which have changed.
+This directory is the MōBrowser port of ExifCleaner. The Electron app at the repository root is
+still the shipping product; `MIGRATION.md` here explains how this port was made, what maps to
+what, and the known gaps. Read it before changing the IPC layer or the build.
 
-| You are touching… | Read first | It owns |
-| --- | --- | --- |
-| `src/renderer` — any screen, component, dialog, form, style, or theme | [`.agents/skills/shadcn/SKILL.md`](.agents/skills/shadcn/SKILL.md) | the renderer: composition, styling, forms, icons, structure, visual polish, interaction, the macOS window-chrome CSS |
-| `src/main` — window, menu, tray, Dock, lifecycle, the Settings window | [`.agents/skills/desktop-shell/SKILL.md`](.agents/skills/desktop-shell/SKILL.md) | the native shell |
-| Any change — how much to check, and whether it needs a test | [`.agents/skills/mobrowser-testing/SKILL.md`](.agents/skills/mobrowser-testing/SKILL.md) | verification and end-to-end regression coverage |
+The repository-root `CLAUDE.md` and `.claude/rules/` still apply to the shared code (domain,
+application, infrastructure, renderer components): named exports, tabs, `import type`, no `any`,
+`sanitize()` for ExifTool output, performance is sacred.
 
-Each `SKILL.md` opens with the project's fixed conventions and links its `rules/` files for the
-Incorrect/Correct detail. **Every rule file ends with a `## Probe` section**: the scripted check for
-that area. The testing skill says *when* to run probes; each rule says *what* its probe catches.
-Launching and driving the app is described only in "Running the app and verifying changes" above.
+| You are touching… | Read first |
+| --- | --- |
+| `src/renderer/proto/*.proto`, `src/main/ipc/`, `src/renderer/api/` | `MIGRATION.md` § IPC |
+| `src/main` — window, menu, Dock, lifecycle | [`.agents/skills/desktop-shell/SKILL.md`](.agents/skills/desktop-shell/SKILL.md) |
+| Any change — how much to check, and whether it needs a test | [`.agents/skills/mobrowser-testing/SKILL.md`](.agents/skills/mobrowser-testing/SKILL.md) |
 
-The shadcn skill also vendors the upstream component docs at
-`.agents/skills/shadcn/component-docs/` — **read component usage from there, never from the web.**
+The renderer is ExifCleaner's own React UI with BEM CSS, not the template's shadcn kit, which was
+removed. Components reach the main process only through `window.api` (installed by
+`src/renderer/api/window_api.ts` on top of the generated `ipc` clients); keep that contract stable
+so the components stay identical to the Electron app's.
 
-> The shadcn skill is a **local fork** — never re-run `npx skills add shadcn/ui`; it would overwrite
-> every project rule.
-
-## When the skills apply
-
-**shadcn** — whenever you create, change, review, or verify any renderer UI, and whenever you work
-with files under `src/renderer/components/ui`.
-
-**desktop-shell** — whenever you build a new app or feature, change what the app *is*, or a reference
-image/mockup implies a window shape (a compact panel, a menubar popover, a HUD, a full app). An app
-is more than its renderer: the window size and constraints, the titlebar and macOS traffic lights,
-the application menu, the tray, and the Dock/activation policy are decisions too, and the
-scaffolding's defaults are a *starting point, not a decision*. The macOS traffic-light setup spans
-both skills, and the two halves must stay in sync.
-
-**mobrowser-testing** — for every change, before you start and when you finish. It decides how much
-verification a change needs, from one screenshot to a crawl of a new screen, and what becomes a
-regression test. Verification is part of the job, not a follow-up, and it applies in both
-directions: after you build something, and whenever you're asked to run, check, verify, review,
-test, QA, or "make sure X works" — which includes how it looks, not only whether it responds.
-
-## Building a new app: what to read, in order
-
-Read these at each step and nothing more. Open another rule file only when the shadcn trap index
-or a probe sends you there; every fact lives in one file, and the others link to it.
-
-1. **Decide the shell.** [desktop-shell `SKILL.md`](.agents/skills/desktop-shell/SKILL.md) Step 1
-   (archetype) and [`rules/window.md`](.agents/skills/desktop-shell/rules/window.md); with a
-   reference image, its proportions are the spec. Add
-   [`rules/menu.md`](.agents/skills/desktop-shell/rules/menu.md) when you add menu commands, and
-   [`rules/tray-and-activation.md`](.agents/skills/desktop-shell/rules/tray-and-activation.md) for a
-   background or menubar app.
-2. **Decide where the data lives.** The main process owns what must exist before a window loads or
-   outlive one; the renderer reaches it through `.proto` IPC
-   ([`rules/structure.md`](.agents/skills/shadcn/rules/structure.md#ipc-proto-is-the-source-gen-is-not)).
-   App settings use main-process `prefs`
-   ([`rules/settings-window.md`](.agents/skills/desktop-shell/rules/settings-window.md#where-each-setting-lives)).
-   The app's own documents and records follow
-   [`rules/app-data.md`](.agents/skills/desktop-shell/rules/app-data.md): the data folder, JSON or
-   the built-in `node:sqlite`, atomic writes, and the revision check.
-3. **Build the screens.** [shadcn `SKILL.md`](.agents/skills/shadcn/SKILL.md) (conventions and the
-   trap index), then [`rules/app-kit.md`](.agents/skills/shadcn/rules/app-kit.md) before writing
-   any component, and [`rules/app-window.md`](.agents/skills/shadcn/rules/app-window.md) before
-   touching the toolbar or the sidebar header.
-4. **Check it.** [mobrowser-testing `SKILL.md`](.agents/skills/mobrowser-testing/SKILL.md): size the
-   check to the change and save what's worth protecting as e2e tests. For a first build, this is the
-   minimum, in order:
-   - **Static, no app needed:** the grep probes of
-     [`app-kit.md`](.agents/skills/shadcn/rules/app-kit.md#probe-find-hand-rolled-kit-patterns),
-     [`structure.md`](.agents/skills/shadcn/rules/structure.md#probe),
-     [`styling.md`](.agents/skills/shadcn/rules/styling.md#probe),
-     [`composition.md`](.agents/skills/shadcn/rules/composition.md#probe), and
-     [`menu.md`](.agents/skills/desktop-shell/rules/menu.md#probe) (no dead items).
-   - **In the running app:** the
-     [`accessibility.md`](.agents/skills/shadcn/rules/accessibility.md#probe) snippets on each
-     screen; the window at its minimum size
-     ([`window.md`](.agents/skills/desktop-shell/rules/window.md#probe)); the traffic-light
-     keep-out on macOS ([`app-window.md`](.agents/skills/shadcn/rules/app-window.md#probe)); each
-     menu command's state from `window.__menuState`; and a saved change read back after a reload
-     ([`app-data.md`](.agents/skills/desktop-shell/rules/app-data.md#probe)).
-   - **Once, on the main screen:** the [crash crawl](.agents/skills/shadcn/rules/crawl.md#probe).
-   Read a rule's full text only when its probe finds something.
+ExifTool binaries live in `assets/exiftool/{nix,win}/bin` and ship through per-platform `extras`
+in `mobrowser.conf.json`; refresh them from the repository root's `.resources/` after running
+`update_exiftool.pl` there.

@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+import "common.proto";
+
+message ClassifiedFile {
+  string path = 1;
+  double size = 2;
+}
+
+message ClassifyResult {
+  repeated ClassifiedFile files = 1;
+  repeated string folders = 2;
+}
+
+message ExpandResult {
+  repeated string files = 1;
+  int32 skipped_count = 2;
+  optional string error = 3;
+}
+
+service FolderService {
+  rpc Classify(PathList) returns (ClassifyResult);
+  rpc Expand(FilePath) returns (ExpandResult);
+}

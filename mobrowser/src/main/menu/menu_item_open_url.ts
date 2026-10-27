@@ -1,18 +1,21 @@
-import { shell, type MenuItemConstructorOptions } from "electron";
+import { MenuItem, workspace } from "@mobrowser/api";
 
 interface OpenUrlMenuItemParams {
+	id: string;
 	label: string;
 	url: string;
 }
 
 export function openUrlMenuItem({
+	id,
 	label,
 	url,
-}: OpenUrlMenuItemParams): MenuItemConstructorOptions {
-	return {
+}: OpenUrlMenuItemParams): MenuItem {
+	return new MenuItem({
+		id,
 		label: label,
-		click: function () {
-			shell.openExternal(url);
+		action: function () {
+			workspace.openUrl(url);
 		},
-	};
+	});
 }

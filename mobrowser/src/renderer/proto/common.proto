@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+// Messages shared by several services. Kept in its own file because every
+// .proto file that declares a service becomes one `ipc.<file name>` client.
+
+message FilePath {
+  string path = 1;
+}
+
+message PathList {
+  repeated string paths = 1;
+}
+
+message Success {
+  bool success = 1;
+}
+
+message SuccessWithError {
+  bool success = 1;
+  optional string error = 2;
+}
+
+message ThemeModeValue {
+  // "light", "dark" or "system".
+  string mode = 1;
+}

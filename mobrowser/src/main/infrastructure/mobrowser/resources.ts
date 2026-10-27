@@ -1,23 +1,18 @@
 import path from "path";
-import { isProd } from "./env";
+import { app } from "@mobrowser/api";
 
 const ICON_FILENAME = "icon.png";
 const CHECKMARK_FILENAME = "check.png";
 
-const DevResourcesDirName = ".resources";
-
+// MōBrowser copies the project's resources/ directory (and the per-platform
+// `extras` in mobrowser.conf.json) into the bundle in dev and packaged builds
+// alike, so one path serves both.
 export function resourcesPath(): string {
-	return isProd()
-		? process.resourcesPath
-		: path.join(process.cwd(), DevResourcesDirName);
+	return app.getPath("appResources");
 }
 
 export function iconPath(): string {
-	const basePath = path.join(resourcesPath(), ICON_FILENAME);
-	// Fix for Linux
-	const pathFixed = basePath.replace(/\\/g, "\\\\");
-
-	return pathFixed;
+	return path.join(resourcesPath(), ICON_FILENAME);
 }
 
 export function checkmarkPath(): string {

@@ -1,19 +1,17 @@
-import { app } from "electron";
-import { iconPath } from "../../infrastructure";
+import { app } from "@mobrowser/api";
+import { currentBrowserWindow } from "../infrastructure";
 import { i18n } from "../i18n";
 
+// MōBrowser has no native About panel (Electron's app.showAboutPanel), so the
+// same facts are shown in a native message dialog.
 export function showAboutWindow(author: string, websiteUrl: string): void {
-	let aboutPanelOptions = {
-		applicationName: app.getName(),
-		applicationVersion: app.getVersion(),
-		copyright: `${i18n({ key: "aboutwindow:copyright" })} © ${author}`,
-		version: app.getVersion(),
-		credits: author,
-		authors: [author],
-		website: websiteUrl,
-		iconPath: iconPath(),
-	};
-
-	app.setAboutPanelOptions(aboutPanelOptions);
-	app.showAboutPanel();
+	const win = currentBrowserWindow({ browserWindow: null });
+	void app.showMessageDialog({
+		...(win ? { parentWindow: win } : {}),
+		type: "info",
+		title: app.name,
+		message: `${app.name} ${app.version}`,
+		informativeText: `${i18n({ key: "aboutwindow:copyright" })} © ${author}\n${websiteUrl}`,
+		buttons: [{ label: "OK", type: "primary" }],
+	});
 }

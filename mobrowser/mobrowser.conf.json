@@ -2,24 +2,52 @@
   "app": {
     "name": "ExifCleaner",
     "version": {
-      "major": "1",
-      "minor": "0",
+      "major": "4",
+      "minor": "7",
       "patch": "0"
     },
-    "author": "",
-    "copyright": "© 2026 ExifCleaner. All rights reserved.",
-    "description": "",
+    "author": "szTheory",
+    "copyright": "Copyright © szTheory",
+    "description": "Clean exif metadata from images, media files, and PDF documents",
     "locales": [
-      "en-US"
+      "en-US",
+      "ar",
+      "ca",
+      "cs",
+      "da",
+      "de",
+      "es",
+      "fa",
+      "fr",
+      "hr",
+      "hu",
+      "it",
+      "ja",
+      "ml",
+      "nl",
+      "pl",
+      "pt-BR",
+      "pt-PT",
+      "ro",
+      "ru",
+      "sk",
+      "sv",
+      "tr",
+      "uk",
+      "vi",
+      "zh-CN"
     ],
     "trustedOrigins": [],
     "updateServerUrl": "",
     "schemes": [],
+    "nodeModules": [
+      "exifcleaner-node"
+    ],
     "bundle": {
       "macOS": {
-        "executableName": "",
+        "executableName": "ExifCleaner",
         "icon": "assets/app.icns",
-        "bundleID": "com.company.ExifCleaner",
+        "bundleID": "com.exifcleaner",
         "extraInfo": "",
         "codesignIdentity": "${MAC_CODESIGN_IDENTITY}",
         "codesignEntitlements": "assets/entitlements.plist",
@@ -28,7 +56,12 @@
         "appleID": "${MAC_APPLE_ID}",
         "provisioningProfile": "",
         "password": "${MAC_APPLE_PASSWORD}",
-        "extras": [],
+        "extras": [
+          {
+            "from": "assets/exiftool/nix/bin/",
+            "to": "Resources/nix/bin"
+          }
+        ],
         "installer": {
           "dmg": {
             "name": "",
@@ -64,11 +97,16 @@
         }
       },
       "Windows": {
-        "executableName": "",
+        "executableName": "ExifCleaner",
         "icon": "assets/app.ico",
         "signCommand": "",
         "fileAssociations": [],
-        "extras": [],
+        "extras": [
+          {
+            "from": "assets/exiftool/win/bin/",
+            "to": "resources/win/bin"
+          }
+        ],
         "installer": {
           "exe": {
             "name": "",
@@ -83,10 +121,15 @@
         }
       },
       "Linux": {
-        "executableName": "",
+        "executableName": "ExifCleaner",
         "icon": "assets/app.png",
         "fileAssociations": [],
-        "extras": []
+        "extras": [
+          {
+            "from": "assets/exiftool/nix/bin/",
+            "to": "resources/nix/bin"
+          }
+        ]
       }
     }
   },

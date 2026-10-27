@@ -1,8 +1,8 @@
-import type { Result } from "../common";
-import type { ExifError } from "../domain";
-import type { CopyModeLeakCheckDemand } from "../domain/files/file_types";
-import type { WrittenBy } from "../application/metadata_engine_port";
-import type { OutputVerificationError } from "../application/queries/verify_generated_output_query";
+import type { Result } from "./common";
+import type { ExifError } from "./domain";
+import type { CopyModeLeakCheckDemand } from "./domain/files/file_types";
+import type { WrittenBy } from "./application/metadata_engine_port";
+import type { OutputVerificationError } from "./application/queries/verify_generated_output_query";
 
 export type OutputTransactionFailure =
 	| {

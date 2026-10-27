@@ -1,8 +1,9 @@
-import { type MenuItemConstructorOptions, BrowserWindow } from "electron";
+import { CheckboxMenuItem, Menu, MenuItem } from "@mobrowser/api";
 import { fileMenuOpenItem } from "./menu_file_open";
 import { i18n } from "../i18n";
-import { IPC_CHANNELS } from "../../common";
-import { LANGUAGE_NAMES } from "../../domain";
+import { settingsEvents } from "../ipc/events";
+import { LANGUAGE_NAMES } from "../domain";
+import { restoreWindowAndFocus } from "../infrastructure";
 
 // Set by init.ts to avoid circular dependency with container
 let onLanguageChange: ((code: string | null) => Promise<void>) | null = null;
@@ -20,50 +21,51 @@ export function setDockLanguageSettingGetter(
 	getLanguageSetting = getter;
 }
 
-function dockLanguageSubmenu(): MenuItemConstructorOptions {
+// MōBrowser has no radio items: checkboxes stand in for them, and the menus
+// are rebuilt after every change so exactly one stays checked.
+function dockLanguageSubmenu(): Menu {
 	const settingValue = getLanguageSetting?.() ?? null;
 
-	const languageItems: MenuItemConstructorOptions[] = LANGUAGE_NAMES.map(
-		(lang): MenuItemConstructorOptions => ({
-			label: lang.nativeName,
-			type: "radio",
-			checked: settingValue === lang.code,
-			click: () => {
-				void onLanguageChange?.(lang.code);
-			},
-		}),
+	const languageItems = LANGUAGE_NAMES.map(
+		(lang) =>
+			new CheckboxMenuItem({
+				id: `dock-language-${lang.code}`,
+				label: lang.nativeName,
+				checked: settingValue === lang.code,
+				action: () => {
+					void onLanguageChange?.(lang.code);
+				},
+			}),
 	);
 
-	return {
+	return new Menu({
 		label: i18n({ key: "language" }) || "Language",
-		submenu: [
-			{
+		items: [
+			new CheckboxMenuItem({
+				id: "dock-language-system",
 				label: `${i18n({ key: "languageSystem" }) || "System"}`,
-				type: "radio",
 				checked: settingValue === null,
-				click: () => {
+				action: () => {
 					void onLanguageChange?.(null);
 				},
-			},
-			{ type: "separator" },
+			}),
+			"separator",
 			...languageItems,
 		],
-	};
+	});
 }
 
-export function dockMenuTemplate(): MenuItemConstructorOptions[] {
+export function dockMenuTemplate(): Menu["items"] {
 	return [
 		fileMenuOpenItem(),
-		{
-			label: `${i18n({ key: "menu.app.settings" })}\u2026`,
-			click: () => {
-				const win = BrowserWindow.getAllWindows()[0];
-				if (win) {
-					win.show();
-					win.webContents.send(IPC_CHANNELS.SETTINGS_TOGGLE);
-				}
+		new MenuItem({
+			id: "dock-settings",
+			label: `${i18n({ key: "menu.app.settings" })}…`,
+			action: () => {
+				restoreWindowAndFocus({ browserWindow: null });
+				settingsEvents.OnToggle({});
 			},
-		},
+		}),
 		dockLanguageSubmenu(),
 	];
 }

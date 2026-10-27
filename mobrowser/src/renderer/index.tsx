@@ -1,3 +1,5 @@
+// Must run first: installs window.api, which replaces the Electron preload.
+import "./api/window_api";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";

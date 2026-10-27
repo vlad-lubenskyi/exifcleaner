@@ -1,8 +1,8 @@
 import { createContext, useContext, useReducer } from "react";
 import type { Dispatch, ReactNode } from "react";
-import type { FileProcessingOutcomeKind } from "../../domain";
-import { FileProcessingStatus } from "../../domain";
-import { assertNever } from "../../common/types";
+import type { FileProcessingOutcomeKind } from "../../main/domain";
+import { FileProcessingStatus } from "../../main/domain";
+import { assertNever } from "../../main/common/types";
 
 export type FolderDiscoveryStatus =
 	"scanning" | "discovering" | "complete" | "empty";

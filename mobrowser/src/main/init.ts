@@ -1,6 +1,5 @@
-import { app, type BrowserWindow } from "electron";
-import packageJson from "../../package.json";
-import { preloadI18nStrings } from "../infrastructure";
+import { app, type BrowserWindow } from "@mobrowser/api";
+import { preloadI18nStrings } from "./infrastructure";
 import {
 	setupI18nHandlers,
 	setContainer,
@@ -32,41 +31,25 @@ import { createContainer, initContainer } from "./container";
 import type { Container } from "./container";
 import { hardenNavigation } from "./security/navigation";
 import { installPermissionGate } from "./security/permissions";
-import { registerAllowedSender, unregisterSender } from "./ipc/ipc_validation";
+import { currentBrowserWindow } from "./infrastructure";
 
-function setupUserModelId(): void {
-	app.setAppUserModelId(packageJson.build.appId);
-}
-
-let activeBrowserWindow: BrowserWindow | null = null;
 let processInitialization: Promise<Container> | null = null;
 
 function getActiveBrowserWindow(): BrowserWindow | null {
-	if (activeBrowserWindow?.isDestroyed()) {
-		activeBrowserWindow = null;
-	}
-	return activeBrowserWindow;
+	return currentBrowserWindow({ browserWindow: null });
 }
 
-/** Attach security and sender state that belongs to one window lifetime. */
+// Attach security state that belongs to one window lifetime. The Electron
+// sender allowlist is gone: MōBrowser checks the frame origin of every ipc call.
 export function attachWindow(browserWindow: BrowserWindow): void {
-	activeBrowserWindow = browserWindow;
-	registerAllowedSender(browserWindow.webContents.id);
-	browserWindow.webContents.once("destroyed", () => {
-		unregisterSender(browserWindow.webContents.id);
-		if (activeBrowserWindow === browserWindow) {
-			activeBrowserWindow = null;
-		}
-	});
 	hardenNavigation(browserWindow);
+	installPermissionGate(browserWindow);
+	setupContextMenu(browserWindow);
 }
 
 async function initializeProcess(): Promise<Container> {
 	const container = createContainer();
 	await initContainer(container);
-
-	// Install security hardening before any IPC handlers fire
-	installPermissionGate();
 
 	setContainer(container);
 
@@ -77,9 +60,10 @@ async function initializeProcess(): Promise<Container> {
 	const languageChangeHandler = async (code: string | null): Promise<void> => {
 		await updateSettingsAndNotify({
 			container,
-			getWindow: getActiveBrowserWindow,
 			partial: { language: code },
 		});
+		// Checkbox items stand in for radio items: rebuild to move the check.
+		setupMenus();
 	};
 	const languageSettingGetter = (): string | null =>
 		container.settings.get().language;
@@ -91,6 +75,7 @@ async function initializeProcess(): Promise<Container> {
 	// Wire theme change handler for View menu (same callback injection pattern as language)
 	setThemeChangeHandler((mode) => {
 		container.settings.update({ partial: { themeMode: mode } });
+		setupMenus();
 	});
 	setThemeSettingGetter(() => container.settings.get().themeMode);
 
@@ -98,22 +83,16 @@ async function initializeProcess(): Promise<Container> {
 	setupI18nHandlers();
 	setupExifHandlers({ container });
 	setupFolderHandlers({ container, getWindow: getActiveBrowserWindow });
-	setupSettingsHandlers({
-		container,
-		getWindow: getActiveBrowserWindow,
-	});
-	setupThemeHandlers({
-		getWindow: getActiveBrowserWindow,
-		settingsService: container.settings,
-	});
+	setupSettingsHandlers({ container });
+	setupThemeHandlers({ settingsService: container.settings });
 	setupRevealHandlers();
-	setupContextMenu();
-	setupDockEventHandlers({ getWindow: getActiveBrowserWindow });
-	setupUserModelId();
+	setupDockEventHandlers();
 	setupApp({
-		getWindow: getActiveBrowserWindow,
-		onQuit: () => container.exiftoolProcess.close(),
+		onQuit: () => void container.exiftoolProcess.close(),
 	});
+	// MōBrowser persists app.theme itself; settings.json stays the source of
+	// truth, as nativeTheme.themeSource did not survive an Electron restart.
+	app.setTheme(container.settings.get().themeMode);
 
 	return container;
 }

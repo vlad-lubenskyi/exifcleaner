@@ -1,9 +1,9 @@
-import type { I18nStringsDictionary } from "../domain";
-import type { Settings } from "../domain";
+import type { I18nStringsDictionary } from "../../main/domain";
+import type { Settings } from "../../main/domain";
 import type {
 	ClassifiedFile,
 	RemoveMetadataResult,
-} from "../common/ipc_channels";
+} from "../../main/common/ipc_channels";
 
 export type { I18nStringsDictionary, ClassifiedFile };
 
@@ -80,7 +80,7 @@ export interface PlatformApi {
 	isMac: boolean;
 }
 
-export interface ElectronApi {
+export interface WindowApi {
 	exif: ExifApi;
 	i18n: I18nApi;
 	files: FilesApi;

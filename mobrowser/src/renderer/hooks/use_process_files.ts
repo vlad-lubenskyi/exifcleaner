@@ -6,7 +6,7 @@ import {
 	classifyMetadataOutcome,
 	FileProcessingStatus,
 	summarizeMetadataChange,
-} from "../../domain";
+} from "../../main/domain";
 
 // Processes files sequentially: read metadata -> strip -> read after -> update state.
 // Uses a queue ref to handle rapid successive drops without race conditions.

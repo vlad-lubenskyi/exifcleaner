@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+import "common.proto";
+import "google/protobuf/empty.proto";
+
+message FileCount {
+  int32 count = 1;
+}
+
+message OptionalPath {
+  optional string path = 1;
+}
+
+service FilesService {
+  rpc ChooseFiles(google.protobuf.Empty) returns (PathList);
+  rpc ChooseFolder(google.protobuf.Empty) returns (OptionalPath);
+  // Batch progress for the Dock badge (macOS); fire-and-forget from the renderer.
+  rpc NotifyFilesAdded(FileCount) returns (google.protobuf.Empty);
+  rpc NotifyFileProcessed(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc NotifyAllFilesProcessed(google.protobuf.Empty) returns (google.protobuf.Empty);
+  // Paths chosen from File > Open, the Dock menu, or delivered by the OS
+  // (a file dropped on the Dock icon, "Open With").
+  rpc OnFileOpenAddFiles(google.protobuf.Empty) returns (stream PathList);
+}

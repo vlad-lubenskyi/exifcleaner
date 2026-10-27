@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+import "common.proto";
+import "google/protobuf/struct.proto";
+
+// ExifTool output varies by file type, so the tags travel as a JSON-like
+// Struct, the protobuf counterpart of the Record<string, unknown> the
+// renderer already uses.
+message Metadata {
+  google.protobuf.Struct tags = 1;
+}
+
+// The flattened form of RemoveMetadataResult (common/ipc_channels.ts). The
+// renderer rebuilds the discriminated union from `success` and `failure_kind`.
+message RemoveMetadataResult {
+  bool success = 1;
+
+  // Set when success is true.
+  string output_path = 2;
+  bool was_forced_copy = 3;
+  bool wrote_file = 4;
+  double output_size = 5;
+
+  // The plain `{ success: false, error }` failure.
+  optional string error = 6;
+
+  // "write", "verification", "cleanup", "commit", "xattr" or "refused".
+  optional string failure_kind = 7;
+  string detail = 8;
+  optional string residual_path = 9;
+
+  // Set when failure_kind is "refused".
+  string refusal_reason = 10;
+  string original_path = 11;
+}
+
+service ExifService {
+  rpc ReadMetadata(FilePath) returns (Metadata);
+  rpc RemoveMetadata(FilePath) returns (RemoveMetadataResult);
+}

@@ -1,56 +1,57 @@
-import { ipcMain } from "electron";
-import type { BrowserWindow } from "electron";
+import { ipc } from "@mobrowser/api";
 import type { Container } from "./container";
-import type { Settings } from "../domain";
-import { IPC_CHANNELS } from "../common";
-import { createValidatedHandler } from "./ipc/ipc_validation";
+import type { Settings } from "./domain";
+import { validated } from "./ipc/ipc_validation";
 import { settingsGetSchema, settingsSetSchema } from "./ipc/ipc_schemas";
+import { SettingsServiceDescriptor } from "./gen/ipc_service";
+import { settingsEvents } from "./ipc/events";
+import { fromSettingsPatch, toSettingsMessage } from "./ipc/settings_message";
 import { handleLanguageChange } from "./i18n";
 
 export function setupSettingsHandlers({
 	container,
-	getWindow,
 }: {
 	container: Container;
-	getWindow: () => BrowserWindow | null;
 }): void {
-	ipcMain.handle(
-		IPC_CHANNELS.SETTINGS_GET,
-		createValidatedHandler(settingsGetSchema, async () => {
-			return container.settings.get();
-		}),
-	);
+	const get = validated(settingsGetSchema, async () => {
+		return container.settings.get();
+	});
 
-	ipcMain.handle(
-		IPC_CHANNELS.SETTINGS_SET,
-		createValidatedHandler(settingsSetSchema, async (input) => {
-			// settingsSetSchema has already validated this as a partial update. Expanding
-			// it through full-schema defaults here would silently reset every omitted
-			// preference whenever the user changed a single toggle.
-			const partial = Object.fromEntries(
-				Object.entries(input).filter(([, value]) => value !== undefined),
-			) as Partial<Settings>;
-			await updateSettingsAndNotify({ container, getWindow, partial });
+	const set = validated(settingsSetSchema, async (input) => {
+		// settingsSetSchema has already validated this as a partial update. Expanding
+		// it through full-schema defaults here would silently reset every omitted
+		// preference whenever the user changed a single toggle.
+		const partial = Object.fromEntries(
+			Object.entries(input).filter(([, value]) => value !== undefined),
+		) as Partial<Settings>;
+		await updateSettingsAndNotify({ container, partial });
 
-			return { success: true, error: null };
-		}),
-	);
+		return { success: true, error: null };
+	});
+
+	ipc.registerService(SettingsServiceDescriptor, {
+		async Get() {
+			return toSettingsMessage(await get(undefined));
+		},
+		async Set(patch) {
+			const { success } = await set(fromSettingsPatch(patch));
+			return { success };
+		},
+	});
 }
 
 export async function updateSettingsAndNotify({
 	container,
-	getWindow,
 	partial,
 }: {
 	container: Container;
-	getWindow: () => BrowserWindow | null;
 	partial: Partial<Settings>;
 }): Promise<Settings> {
 	const previousLanguage = container.settings.get().language;
 	await container.settings.update({ partial });
 	const newSettings = container.settings.get();
 
-	getWindow()?.webContents.send(IPC_CHANNELS.SETTINGS_CHANGED, newSettings);
+	settingsEvents.OnChanged(toSettingsMessage(newSettings));
 	handleLanguageChange(previousLanguage, newSettings.language);
 
 	return newSettings;

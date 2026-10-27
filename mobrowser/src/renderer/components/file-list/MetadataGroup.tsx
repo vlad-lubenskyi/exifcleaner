@@ -1,4 +1,7 @@
-import type { MetadataDiffField, MetadataDiffGroup } from "../../../domain";
+import type {
+	MetadataDiffField,
+	MetadataDiffGroup,
+} from "../../../main/domain";
 import { MetadataField } from "./MetadataField";
 
 export function MetadataGroup({

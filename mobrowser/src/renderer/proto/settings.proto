@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+import "common.proto";
+import "google/protobuf/empty.proto";
+
+// Mirrors domain/settings_schema.ts Settings.
+message Settings {
+  bool preserve_orientation = 1;
+  bool preserve_color_profile = 2;
+  bool preserve_resolution = 3;
+  bool save_as_copy = 4;
+  bool remove_xattrs = 5;
+  bool preserve_timestamps = 6;
+  // Absent means "follow the system language".
+  optional string language = 7;
+  string theme_mode = 8;
+}
+
+// A partial update: only the fields that are present change.
+message SettingsPatch {
+  optional bool preserve_orientation = 1;
+  optional bool preserve_color_profile = 2;
+  optional bool preserve_resolution = 3;
+  optional bool save_as_copy = 4;
+  optional bool remove_xattrs = 5;
+  optional bool preserve_timestamps = 6;
+  // Present with follow_system_language = true sets the language back to null.
+  optional string language = 7;
+  bool follow_system_language = 9;
+  optional string theme_mode = 8;
+}
+
+service SettingsService {
+  rpc Get(google.protobuf.Empty) returns (Settings);
+  rpc Set(SettingsPatch) returns (SuccessWithError);
+  rpc OnChanged(google.protobuf.Empty) returns (stream Settings);
+  // Settings… chosen from the application or Dock menu.
+  rpc OnToggle(google.protobuf.Empty) returns (stream google.protobuf.Empty);
+}

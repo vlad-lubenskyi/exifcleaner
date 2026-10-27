@@ -6,8 +6,8 @@ import {
 	useState,
 } from "react";
 import type { ReactNode } from "react";
-import { i18nLookup } from "../../domain";
-import type { I18nStringsDictionary } from "../../domain";
+import { i18nLookup } from "../../main/domain";
+import type { I18nStringsDictionary } from "../../main/domain";
 
 export interface I18nContextValue {
 	t: (key: string) => string;

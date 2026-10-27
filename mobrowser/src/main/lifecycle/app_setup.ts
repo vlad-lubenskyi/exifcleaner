@@ -1,52 +1,16 @@
-import { app } from "electron";
-import type { BrowserWindow } from "electron";
-import { restoreWindowAndFocus } from "../../infrastructure";
-import { isMac, isWindows } from "../../common";
-import { fileOpen } from "../file_open";
-
-function preventMultipleAppInstances(): void {
-	if (!app.requestSingleInstanceLock()) {
-		app.quit();
-	}
-}
-
-interface OpenMinimizedParams {
-	getWindow: () => BrowserWindow | null;
-}
-
-function openMinimizedIfAlreadyExists({
-	getWindow,
-}: OpenMinimizedParams): void {
-	app.on("second-instance", (_event, argv) => {
-		const browserWindow = getWindow();
-		console.log(argv);
-		if (isWindows() && argv.length > 0 && argv.includes("--open-file")) {
-			fileOpen({ browserWindow });
-			return;
-		}
-
-		restoreWindowAndFocus({ browserWindow });
-	});
-}
-
-function quitOnWindowsAllClosed(): void {
-	app.on("window-all-closed", () => {
-		if (!isMac()) {
-			app.quit();
-		}
-	});
-}
+// MōBrowser is single-instance by default and brings the running instance to
+// the front (Electron's requestSingleInstanceLock + "second-instance"), and
+// quits when the last window closes on Windows and Linux ("window-all-closed").
+// What is left to wire is the ExifTool shutdown.
 
 interface SetupAppParams {
-	getWindow: () => BrowserWindow | null;
 	onQuit: () => void;
 }
 
-export function setupApp({ getWindow, onQuit }: SetupAppParams): void {
-	preventMultipleAppInstances();
-	openMinimizedIfAlreadyExists({ getWindow });
-	quitOnWindowsAllClosed();
-	// Note: "activate" handler (re-create window on dock click) is in index.ts
-	// because it needs to call the full init + setupMainWindow sequence
-	app.on("will-quit", onQuit);
+export function setupApp({ onQuit }: SetupAppParams): void {
+	// MōBrowser has no "will-quit" event; the main process exiting is the last
+	// moment to ask ExifTool to stop. Should that not run, ExifTool still exits:
+	// the POSIX watchdog config sees the parent gone, and on Windows its
+	// `-@ -` argument loop ends when stdin closes.
+	process.once("exit", onQuit);
 }

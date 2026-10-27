@@ -1,6 +1,6 @@
-import { dialog, BrowserWindow } from "electron";
-import { defaultBrowserWindow, restoreWindowAndFocus } from "../infrastructure";
-import { IPC_CHANNELS } from "../common";
+import { app, type BrowserWindow } from "@mobrowser/api";
+import { defaultBrowserWindow, restoreWindowAndFocus } from "./infrastructure";
+import { filesEvents } from "./ipc/events";
 
 interface FileOpenParams {
 	browserWindow: BrowserWindow | undefined | null;
@@ -10,16 +10,15 @@ export function fileOpen({ browserWindow }: FileOpenParams): void {
 	const win = defaultBrowserWindow({ browserWindow });
 	restoreWindowAndFocus({ browserWindow: win });
 
-	dialog
-		.showOpenDialog(win, {
-			properties: ["openFile", "multiSelections"],
+	app
+		.showOpenDialog({
+			parentWindow: win,
+			selectionPolicy: "files",
+			features: { allowMultiple: true },
 		})
 		.then((result) => {
-			if (result.filePaths) {
-				defaultBrowserWindow({ browserWindow: win }).webContents.send(
-					IPC_CHANNELS.FILE_OPEN_ADD_FILES,
-					result.filePaths,
-				);
+			if (!result.canceled) {
+				filesEvents.OnFileOpenAddFiles({ paths: result.paths });
 			}
 		});
 }

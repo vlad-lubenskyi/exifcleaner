@@ -1,59 +1,34 @@
-import { type MenuItemConstructorOptions, BrowserWindow, app } from "electron";
+import { app, MenuItem, MenuWithRole } from "@mobrowser/api";
 import { i18n } from "../i18n";
-import { isMac, IPC_CHANNELS } from "../../common";
+import { settingsEvents } from "../ipc/events";
+import { showAboutWindow } from "./menu_app_about";
+import { GITHUB_USERNAME, WEBSITE_URL } from "./menu_help";
 
-export function appMenuTemplate(): MenuItemConstructorOptions {
-	return {
-		label: app.getName(),
-		submenu: [
-			{
-				label: `${i18n({ key: "menu.app.about" })}${app.getName()}`,
-				role: "about",
-			},
-			{
-				type: "separator",
-			},
-			{
-				label: i18n({ key: "menu.app.services" }),
-				role: "services",
-			},
-			{
-				type: "separator",
-			},
-			{
-				label: `${i18n({ key: "menu.app.settings" })}\u2026`,
-				accelerator: "CmdOrCtrl+,",
-				click: () => {
-					const win = BrowserWindow.getAllWindows()[0];
-					if (win) {
-						win.webContents.send(IPC_CHANNELS.SETTINGS_TOGGLE);
-					}
-				},
-			},
-			{
-				type: "separator",
-			},
-			{
-				label: `${i18n({ key: "menu.app.hide" })} ${app.getName()}`,
-				role: "hide",
-			},
-			{
-				label: i18n({ key: "menu.app.hide-others" }),
-				role: "hideOthers",
-			},
-			{
-				label: i18n({ key: "menu.app.show-all" }),
-				role: "unhide",
-			},
-			{
-				type: "separator",
-			},
-			{
-				label: isMac()
-					? `${i18n({ key: "menu.app.quit" })} ${app.getName()}`
-					: i18n({ key: "menu.app.quit" }),
-				role: "quit",
-			},
+// Role items (Hide, Hide Others, Show All, Quit) are labelled by MōBrowser in
+// the system language (app.locales in mobrowser.conf.json), not by strings.json.
+// Electron's Services submenu has no counterpart.
+export function appMenuTemplate(): MenuWithRole {
+	return new MenuWithRole({
+		role: "macAppMenu",
+		items: [
+			new MenuItem({
+				id: "about",
+				label: `${i18n({ key: "menu.app.about" })}${app.name}`,
+				action: () => showAboutWindow(GITHUB_USERNAME, WEBSITE_URL),
+			}),
+			"separator",
+			new MenuItem({
+				id: "settings",
+				label: `${i18n({ key: "menu.app.settings" })}…`,
+				shortcut: "CommandOrControl+,",
+				action: () => settingsEvents.OnToggle({}),
+			}),
+			"separator",
+			"macHideApp",
+			"macHideOthers",
+			"macShowAll",
+			"separator",
+			"quit",
 		],
-	};
+	});
 }

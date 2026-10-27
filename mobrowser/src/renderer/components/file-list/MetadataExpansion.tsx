@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { computeMetadataDiff } from "../../../domain";
+import { computeMetadataDiff } from "../../../main/domain";
 import { MetadataGroup } from "./MetadataGroup";
 import "../../styles/metadata_expansion.css";
 

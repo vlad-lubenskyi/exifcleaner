@@ -3,8 +3,8 @@
 
 import { useRef } from "react";
 import type { FileEntry } from "../../contexts/AppContext";
-import { FileProcessingStatus } from "../../../domain";
-import { assertNever } from "../../../common/types";
+import { FileProcessingStatus } from "../../../main/domain";
+import { assertNever } from "../../../main/common/types";
 import { TypePill } from "../ui/TypePill";
 import { StatusIcon } from "../ui/StatusIcon";
 import { ChevronIcon } from "../icons/ChevronIcon";

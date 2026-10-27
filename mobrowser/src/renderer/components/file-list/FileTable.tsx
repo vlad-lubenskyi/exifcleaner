@@ -3,8 +3,8 @@
 
 import { useCallback, useRef, useState, useEffect, useMemo } from "react";
 import { useAppContext } from "../../contexts/AppContext";
-import { FileProcessingStatus } from "../../../domain";
-import { assertNever } from "../../../common/types";
+import { FileProcessingStatus } from "../../../main/domain";
+import { assertNever } from "../../../main/common/types";
 import type {
 	FileEntry,
 	FolderDiscoveryStatus,

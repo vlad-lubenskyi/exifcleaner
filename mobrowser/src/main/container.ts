@@ -1,4 +1,4 @@
-import { app } from "electron";
+import { app } from "@mobrowser/api";
 import path from "node:path";
 import { rename, unlink } from "node:fs/promises";
 import {
@@ -11,14 +11,14 @@ import {
 	removeXattrs,
 	exiftoolBinPath,
 	exiftoolConfigPath,
-} from "../infrastructure";
+} from "./infrastructure";
 import {
 	StripMetadataCommand,
 	ReadMetadataQuery,
 	ExpandFolderQuery,
 	RemoveXattrCommand,
 	VerifyGeneratedOutputQuery,
-} from "../application";
+} from "./application";
 import { OutputTransaction } from "./output_transaction";
 
 export function createContainer(): {

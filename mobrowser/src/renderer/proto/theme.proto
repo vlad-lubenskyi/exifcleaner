@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+import "common.proto";
+import "google/protobuf/empty.proto";
+
+message ThemeState {
+  bool should_use_dark_colors = 1;
+}
+
+message AccentColor {
+  // "#rrggbb"
+  string color = 1;
+}
+
+service ThemeService {
+  rpc Get(google.protobuf.Empty) returns (ThemeState);
+  rpc Set(ThemeModeValue) returns (Success);
+  rpc GetAccentColor(google.protobuf.Empty) returns (AccentColor);
+  rpc OnChanged(google.protobuf.Empty) returns (stream ThemeState);
+  rpc OnAccentColorChanged(google.protobuf.Empty) returns (stream AccentColor);
+  // Appearance chosen from View > Appearance.
+  rpc OnThemeModeChanged(google.protobuf.Empty) returns (stream ThemeModeValue);
+}

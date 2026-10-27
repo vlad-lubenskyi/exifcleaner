@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+
+// One string key translated into every locale: locale -> text.
+message LocalizedString {
+  map<string, string> locales = 1;
+}
+
+// The whole strings.json dictionary: key -> translations.
+message I18nStrings {
+  map<string, LocalizedString> strings = 1;
+}
+
+service I18nService {
+  rpc GetLocale(google.protobuf.Empty) returns (google.protobuf.StringValue);
+  rpc GetStrings(google.protobuf.Empty) returns (I18nStrings);
+  rpc OnLanguageChanged(google.protobuf.Empty) returns (stream google.protobuf.StringValue);
+}

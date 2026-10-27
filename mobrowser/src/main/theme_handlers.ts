@@ -1,79 +1,73 @@
-import { ipcMain, nativeTheme, systemPreferences } from "electron";
-import type { BrowserWindow } from "electron";
-import { IPC_CHANNELS } from "../common";
-import { createValidatedHandler } from "./ipc/ipc_validation";
+import { app, ipc, systemSettings } from "@mobrowser/api";
+import { validated } from "./ipc/ipc_validation";
 import {
 	themeGetSchema,
 	themeSetSchema,
 	themeAccentColorSchema,
 } from "./ipc/ipc_schemas";
-import { parseAccentColorHex, ACCENT_COLOR_FALLBACK } from "../domain";
-import type { SettingsService } from "../infrastructure";
+import { ThemeServiceDescriptor } from "./gen/ipc_service";
+import { themeEvents } from "./ipc/events";
+import { parseAccentColorHex, ACCENT_COLOR_FALLBACK } from "./domain";
+import type { SettingsService } from "./infrastructure";
 
+// systemSettings.accentColor is "#RRGGBBAA", the same shape Electron's
+// systemPreferences.getAccentColor() returned without the "#"; empty on Linux.
 function getAccentColorHex(): string {
-	if (process.platform === "darwin" || process.platform === "win32") {
-		const raw = systemPreferences.getAccentColor();
-		return parseAccentColorHex({ raw });
-	}
-	return ACCENT_COLOR_FALLBACK;
+	const raw = systemSettings.accentColor.replace(/^#/, "");
+	return raw === "" ? ACCENT_COLOR_FALLBACK : parseAccentColorHex({ raw });
+}
+
+// Electron's nativeTheme.shouldUseDarkColors: the app theme when forced,
+// otherwise the appearance the OS resolved.
+function shouldUseDarkColors(): boolean {
+	return app.theme === "system"
+		? systemSettings.effectiveAppearance === "dark"
+		: app.theme === "dark";
+}
+
+export function publishThemeChanged(): void {
+	themeEvents.OnChanged({ shouldUseDarkColors: shouldUseDarkColors() });
 }
 
 export function setupThemeHandlers({
-	getWindow,
 	settingsService,
 }: {
-	getWindow: () => BrowserWindow | null;
 	settingsService?: SettingsService;
 }): void {
-	ipcMain.handle(
-		IPC_CHANNELS.THEME_GET,
-		createValidatedHandler(themeGetSchema, async () => {
-			return { shouldUseDarkColors: nativeTheme.shouldUseDarkColors };
-		}),
-	);
-
-	ipcMain.handle(
-		IPC_CHANNELS.THEME_SET,
-		createValidatedHandler(themeSetSchema, async (mode) => {
-			nativeTheme.themeSource = mode;
-			if (settingsService) {
-				await settingsService.update({ partial: { themeMode: mode } });
-			}
-			return { success: true };
-		}),
-	);
-
-	ipcMain.handle(
-		IPC_CHANNELS.THEME_ACCENT_COLOR,
-		createValidatedHandler(themeAccentColorSchema, async () => {
-			return { color: getAccentColorHex() };
-		}),
-	);
-
-	nativeTheme.on("updated", () => {
-		const win = getWindow();
-		if (win) {
-			win.webContents.send(IPC_CHANNELS.THEME_CHANGED, {
-				shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
-			});
-			// Re-read accent color on macOS (accent-color-changed event does not fire on macOS)
-			if (process.platform === "darwin") {
-				win.webContents.send(IPC_CHANNELS.THEME_ACCENT_COLOR_CHANGED, {
-					color: getAccentColorHex(),
-				});
-			}
-		}
+	const get = validated(themeGetSchema, async () => {
+		return { shouldUseDarkColors: shouldUseDarkColors() };
 	});
 
-	// Accent color changes (Windows/Linux; macOS reads on nativeTheme.updated above)
-	if (process.platform === "win32" || process.platform === "linux") {
-		systemPreferences.on("accent-color-changed", () => {
-			const win = getWindow();
-			if (win) {
-				win.webContents.send(IPC_CHANNELS.THEME_ACCENT_COLOR_CHANGED, {
-					color: getAccentColorHex(),
-				});
-			}
-		});
-	}
+	const set = validated(themeSetSchema, async (mode) => {
+		app.setTheme(mode);
+		publishThemeChanged();
+		if (settingsService) {
+			await settingsService.update({ partial: { themeMode: mode } });
+		}
+		return { success: true };
+	});
+
+	const getAccentColor = validated(themeAccentColorSchema, async () => {
+		return { color: getAccentColorHex() };
+	});
+
+	ipc.registerService(ThemeServiceDescriptor, {
+		async Get() {
+			return get(undefined);
+		},
+		async Set({ mode }) {
+			return set(mode);
+		},
+		async GetAccentColor() {
+			return getAccentColor(undefined);
+		},
+	});
+
+	systemSettings.on("effectiveAppearanceChanged", () => {
+		publishThemeChanged();
+	});
+
+	systemSettings.on("accentColorChanged", () => {
+		themeEvents.OnAccentColorChanged({ color: getAccentColorHex() });
+	});
 }

@@ -1,15 +1,12 @@
-import type { MenuItemConstructorOptions } from "electron";
-import { nativeTheme, BrowserWindow } from "electron";
+import { app, CheckboxMenuItem, Menu } from "@mobrowser/api";
 import { i18n } from "../i18n";
-import { IPC_CHANNELS } from "../../common";
-import { LANGUAGE_NAMES } from "../../domain";
-import type { ThemeMode } from "../../domain";
+import { themeEvents } from "../ipc/events";
+import { publishThemeChanged } from "../theme_handlers";
+import { LANGUAGE_NAMES } from "../domain";
+import type { ThemeMode } from "../domain";
 
 function broadcastThemeSet(mode: "light" | "dark" | "system"): void {
-	const win = BrowserWindow.getAllWindows()[0];
-	if (win) {
-		win.webContents.send(IPC_CHANNELS.THEME_MODE_CHANGED_FROM_MENU, mode);
-	}
+	themeEvents.OnThemeModeChanged({ mode });
 }
 
 // Set by init.ts to avoid circular dependency with container
@@ -38,101 +35,78 @@ export function setThemeSettingGetter(getter: () => ThemeMode): void {
 	getThemeSetting = getter;
 }
 
-function languageSubmenu(): MenuItemConstructorOptions {
+// MōBrowser has no radio items: checkboxes stand in for them, and the menus
+// are rebuilt after every change (init.ts) so exactly one stays checked.
+function languageSubmenu(): Menu {
 	// Get the raw setting (null = System, string = explicit language)
 	const settingValue = getLanguageSetting?.() ?? null;
 
-	const languageItems: MenuItemConstructorOptions[] = LANGUAGE_NAMES.map(
-		(lang): MenuItemConstructorOptions => ({
-			label: lang.nativeName,
-			type: "radio",
-			checked: settingValue === lang.code,
-			click: () => {
-				void onLanguageChange?.(lang.code);
-			},
-		}),
+	const languageItems = LANGUAGE_NAMES.map(
+		(lang) =>
+			new CheckboxMenuItem({
+				id: `language-${lang.code}`,
+				label: lang.nativeName,
+				checked: settingValue === lang.code,
+				action: () => {
+					void onLanguageChange?.(lang.code);
+				},
+			}),
 	);
 
-	return {
+	return new Menu({
 		label: i18n({ key: "language" }) || "Language",
-		submenu: [
-			{
+		items: [
+			new CheckboxMenuItem({
+				id: "language-system",
 				label: `${i18n({ key: "languageSystem" }) || "System"}`,
-				type: "radio",
 				checked: settingValue === null,
-				click: () => {
+				action: () => {
 					void onLanguageChange?.(null);
 				},
-			},
-			{ type: "separator" },
+			}),
+			"separator",
 			...languageItems,
 		],
-	};
+	});
 }
 
-export function viewMenuTemplate(): MenuItemConstructorOptions {
-	return {
+function themeItem(mode: ThemeMode, label: string): CheckboxMenuItem {
+	return new CheckboxMenuItem({
+		id: `theme-${mode}`,
+		label,
+		checked: (getThemeSetting?.() ?? "system") === mode,
+		action: () => {
+			app.setTheme(mode);
+			publishThemeChanged();
+			broadcastThemeSet(mode);
+			onThemeChange?.(mode);
+		},
+	});
+}
+
+// Zoom and Full Screen are role items labelled by MōBrowser. Developer Tools
+// is development-only: packaged Electron builds disabled DevTools in
+// webPreferences, which left the old menu item inert.
+export function viewMenuTemplate(): Menu {
+	return new Menu({
 		label: i18n({ key: "menu.view.name" }),
-		submenu: [
-			{
+		items: [
+			new Menu({
 				label: i18n({ key: "appearance" }) || "Appearance",
-				submenu: [
-					{
-						label: i18n({ key: "themeLight" }) || "Light",
-						type: "radio",
-						checked: (getThemeSetting?.() ?? "system") === "light",
-						click: () => {
-							nativeTheme.themeSource = "light";
-							broadcastThemeSet("light");
-							onThemeChange?.("light");
-						},
-					},
-					{
-						label: i18n({ key: "themeAuto" }) || "Auto",
-						type: "radio",
-						checked: (getThemeSetting?.() ?? "system") === "system",
-						click: () => {
-							nativeTheme.themeSource = "system";
-							broadcastThemeSet("system");
-							onThemeChange?.("system");
-						},
-					},
-					{
-						label: i18n({ key: "themeDark" }) || "Dark",
-						type: "radio",
-						checked: (getThemeSetting?.() ?? "system") === "dark",
-						click: () => {
-							nativeTheme.themeSource = "dark";
-							broadcastThemeSet("dark");
-							onThemeChange?.("dark");
-						},
-					},
+				items: [
+					themeItem("light", i18n({ key: "themeLight" }) || "Light"),
+					themeItem("system", i18n({ key: "themeAuto" }) || "Auto"),
+					themeItem("dark", i18n({ key: "themeDark" }) || "Dark"),
 				],
-			},
+			}),
 			languageSubmenu(),
-			{ type: "separator" },
-			{
-				label: i18n({ key: "menu.view.toggle-dev-tools" }),
-				role: "toggleDevTools",
-			},
-			{ type: "separator" },
-			{
-				label: i18n({ key: "menu.view.zoom-reset" }),
-				role: "resetZoom",
-			},
-			{
-				label: i18n({ key: "menu.view.zoom-in" }),
-				role: "zoomIn",
-			},
-			{
-				label: i18n({ key: "menu.view.zoom-out" }),
-				role: "zoomOut",
-			},
-			{ type: "separator" },
-			{
-				label: i18n({ key: "menu.view.toggle-full-screen" }),
-				role: "togglefullscreen",
-			},
+			...(app.packaged ? [] : (["separator", "devTools"] as const)),
+			"separator",
+			"zoomReset",
+			"zoomIn",
+			"zoomOut",
+			"separator",
+			"fullScreen",
 		],
-	};
+	});
 }

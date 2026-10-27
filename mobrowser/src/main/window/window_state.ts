@@ -1,10 +1,10 @@
-import { app, screen } from "electron";
-import type { BrowserWindow, Display } from "electron";
+import { app, displays } from "@mobrowser/api";
+import type { BrowserWindow } from "@mobrowser/api";
 import { readFileSync, writeFileSync, renameSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
-import { logError } from "../../common";
-import { formatWindowStateError } from "../../domain";
+import { logError } from "../common";
+import { formatWindowStateError } from "../domain";
 
 const WINDOW_STATE_SAVE_DEBOUNCE_MS = 300;
 
@@ -58,6 +58,24 @@ function getStatePath(): string {
 	return path.join(app.getPath("userData"), "window-state.json");
 }
 
+// The display fields isWithinDisplayBounds reads, in Electron's flat rect shape.
+interface Display {
+	readonly workArea: {
+		readonly x: number;
+		readonly y: number;
+		readonly width: number;
+		readonly height: number;
+	};
+}
+
+// MōBrowser rects nest the point and size: { origin: { x, y }, size: { width, height } }.
+function flatRect(rect: {
+	origin: { x: number; y: number };
+	size: { width: number; height: number };
+}): { x: number; y: number; width: number; height: number } {
+	return { ...rect.origin, ...rect.size };
+}
+
 // Pure function: checks if a window rect overlaps any display work area.
 export function isWithinDisplayBounds(
 	bounds: { x: number; y: number; width: number; height: number },
@@ -79,7 +97,7 @@ export function isWithinDisplayBounds(
 }
 
 // Pure function: validates JSON string and returns a WindowState.
-// Testable without Electron's screen or fs modules.
+// Testable without MōBrowser's displays or fs modules.
 export function validateAndLoadState(
 	json: string | null,
 	displays: Display[],
@@ -118,8 +136,10 @@ export function validateAndLoadState(
 export function loadWindowState(): WindowState {
 	try {
 		const json = readFileSync(getStatePath(), "utf-8");
-		const displays = screen.getAllDisplays();
-		return validateAndLoadState(json, displays);
+		return validateAndLoadState(
+			json,
+			displays.all.map((display) => ({ workArea: flatRect(display.workArea) })),
+		);
 	} catch {
 		return { ...DEFAULT_STATE };
 	}
@@ -127,17 +147,17 @@ export function loadWindowState(): WindowState {
 
 // Only saves if window is not minimized (avoid saving minimized dimensions).
 export function saveWindowState(win: BrowserWindow): void {
-	if (win.isMinimized()) {
+	if (win.isMinimized) {
 		return;
 	}
 
-	const bounds = win.getBounds();
+	const bounds = flatRect(win.bounds);
 	const state: WindowState = {
 		width: bounds.width,
 		height: bounds.height,
 		x: bounds.x,
 		y: bounds.y,
-		isMaximized: win.isMaximized(),
+		isMaximized: win.isMaximized,
 	};
 
 	const json = JSON.stringify(state, null, "\t");
@@ -173,12 +193,13 @@ export function setupWindowStatePersistence(win: BrowserWindow): void {
 		}, WINDOW_STATE_SAVE_DEBOUNCE_MS);
 	};
 
-	win.on("resize", debouncedSave);
-	win.on("move", debouncedSave);
-	win.on("close", () => {
+	win.on("resized", debouncedSave);
+	win.on("moved", debouncedSave);
+	win.handle("close", async () => {
 		if (saveTimeout !== undefined) {
 			clearTimeout(saveTimeout);
 		}
 		saveWindowState(win);
+		return "close";
 	});
 }

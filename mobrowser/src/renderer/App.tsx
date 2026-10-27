@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { I18nProvider } from "./contexts/I18nContext";
 import { AppProvider, useAppContext } from "./contexts/AppContext";
-import { FileProcessingStatus } from "../domain";
+import { FileProcessingStatus } from "../main/domain";
 import { useElapsedTime } from "./hooks/use_elapsed_time";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { EmptyState } from "./components/ui/EmptyState";

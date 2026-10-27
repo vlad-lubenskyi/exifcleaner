@@ -1,23 +1,13 @@
-import { session } from "electron";
+import type { BrowserWindow } from "@mobrowser/api";
 
-// Accepts an optional session-like object for testability.
-// In production, defaults to session.defaultSession.
-export function installPermissionGate(targetSession?: {
-	setPermissionRequestHandler: (
-		handler: (
-			webContents: unknown,
-			permission: string,
-			callback: (granted: boolean) => void,
-		) => void,
-	) => void;
-}): void {
-	const sess = targetSession ?? session.defaultSession;
-	sess.setPermissionRequestHandler((_webContents, permission, callback) => {
-		if (permission === "clipboard-sanitized-write") {
-			callback(true);
-			return;
+// MōBrowser grants framework permission requests from trusted origins
+// automatically; this keeps Electron's deny-by-default gate instead.
+export function installPermissionGate(win: BrowserWindow): void {
+	win.browser.handle("requestPermissions", async ({ permissionType }) => {
+		if (permissionType === "clipboard-sanitized-write") {
+			return "grant";
 		}
-		console.warn(`[security] Denied permission: ${permission}`);
-		callback(false);
+		console.warn(`[security] Denied permission: ${permissionType}`);
+		return "deny";
 	});
 }

@@ -1,33 +1,16 @@
-import { app, Menu, MenuItem } from "electron";
-import { i18n } from "../i18n";
+import { ContextMenu, type BrowserWindow } from "@mobrowser/api";
 
-function buildMenu(canCopy: boolean): Menu {
-	const menu = new Menu();
-
-	if (canCopy) {
-		menu.append(
-			new MenuItem({
-				label: i18n({ key: "contextmenu.copy" }),
-				role: "copy",
-				visible: canCopy,
-				enabled: canCopy,
-			}),
-		);
-	}
-	menu.append(
-		new MenuItem({
-			label: i18n({ key: "contextmenu.select-all" }),
-			role: "selectAll",
-		}),
-	);
-	return menu;
+// Copy and Select All are role items labelled by MōBrowser in the system
+// language; Electron's custom items used the strings.json labels.
+function buildMenu(canCopy: boolean): ContextMenu {
+	return new ContextMenu({
+		items: canCopy ? ["copy", "selectAll"] : ["selectAll"],
+	});
 }
 
-export function setupContextMenu(): void {
-	app.on("browser-window-created", (_event, browserWindow) => {
-		browserWindow.webContents.on("context-menu", (_event, params) => {
-			const isTextSelected = params.selectionText.trim().length > 0;
-			buildMenu(params.editFlags.canCopy && isTextSelected).popup();
-		});
+export function setupContextMenu(win: BrowserWindow): void {
+	win.browser.handle("showContextMenu", (params) => {
+		const isTextSelected = params.selectedText.trim().length > 0;
+		return buildMenu(isTextSelected);
 	});
 }

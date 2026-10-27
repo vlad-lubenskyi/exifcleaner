@@ -1,5 +1,6 @@
-import { app, Menu, type MenuItemConstructorOptions } from "electron";
-import { isMac, isWindows } from "../../common";
+import { app, dock, Menu } from "@mobrowser/api";
+import { isMac } from "../common";
+import { currentBrowserWindow } from "../infrastructure";
 import { appMenuTemplate } from "./menu_app";
 import { dockMenuTemplate } from "./menu_dock";
 import { editMenuTemplate } from "./menu_edit";
@@ -7,11 +8,8 @@ import { fileMenuTemplate } from "./menu_file";
 import { helpMenuTemplate } from "./menu_help";
 import { viewMenuTemplate } from "./menu_view";
 import { windowMenuTemplate } from "./menu_window";
-import { i18n } from "../i18n";
 
-const APP_ARG_WINDOWS_TASK_OPEN_FILE = "--open-file";
-
-function menuTemplate(): MenuItemConstructorOptions[] {
+function menuTemplate(): Menu["items"] {
 	return [
 		...(isMac() ? [appMenuTemplate()] : []),
 		fileMenuTemplate(),
@@ -23,15 +21,18 @@ function menuTemplate(): MenuItemConstructorOptions[] {
 }
 
 function menu(): Menu {
-	return Menu.buildFromTemplate(menuTemplate());
+	return new Menu({ items: menuTemplate() });
 }
 
-function dockMenu(): Menu {
-	return Menu.buildFromTemplate(dockMenuTemplate());
-}
-
+// On macOS the menu belongs to the application; on Windows and Linux each
+// window owns its menu bar (Electron's Menu.setApplicationMenu did both).
 function setupMainMenu(): void {
-	Menu.setApplicationMenu(menu());
+	if (isMac()) {
+		app.setMenu(menu());
+		return;
+	}
+
+	currentBrowserWindow({ browserWindow: null })?.setMenu(menu());
 }
 
 function setupDockMenu(): void {
@@ -39,28 +40,12 @@ function setupDockMenu(): void {
 		return;
 	}
 
-	app.dock?.setMenu(dockMenu());
+	dock.setMenu(new Menu({ items: dockMenuTemplate() }));
 }
 
-function setupUserTasksMenu(): void {
-	if (!isWindows()) {
-		return;
-	}
-
-	app.setUserTasks([
-		{
-			program: process.execPath,
-			arguments: APP_ARG_WINDOWS_TASK_OPEN_FILE,
-			iconPath: process.execPath,
-			iconIndex: 0,
-			title: i18n({ key: "usertasks:open-file.label" }),
-			description: i18n({ key: "usertasks:open-file.description" }),
-		},
-	]);
-}
-
+// Electron's Windows jump-list task (app.setUserTasks, "--open-file") has no
+// MōBrowser counterpart and is not ported.
 export function setupMenus(): void {
 	setupMainMenu();
 	setupDockMenu();
-	setupUserTasksMenu();
 }

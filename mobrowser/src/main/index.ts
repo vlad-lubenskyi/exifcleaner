@@ -1,40 +1,27 @@
-import { BrowserWindow, app } from "electron";
+import { app } from "@mobrowser/api";
 import { setupMenus } from "./menu/menu";
 import { attachWindow, initProcess } from "./init";
 import { createMainWindow, setupMainWindow } from "./window/window_setup";
-import { currentBrowserWindow } from "../infrastructure";
-import { maybeEnableCrashDumps } from "./security/crash_dumps";
+import { currentBrowserWindow } from "./infrastructure";
 
-// CI/test-only diagnostic (48-07): no-op unless EXIFCLEANER_CRASH_DUMPS_DIR is set, which no
-// real user launch or release build ever has. Must run before app.whenReady() -- crash-dump
-// path and reporter registration are only honored when set early. See crash_dumps.ts for the
-// full no-telemetry gating rationale.
-maybeEnableCrashDumps();
-
-// Maintain reference to window to
-// prevent it from being garbage collected
-let browserWindow: BrowserWindow | null = null;
-
+// MōBrowser runs this module once the application is ready (Electron's
+// app.whenReady()). The services are registered before the window exists, so
+// the renderer never calls a service that does not exist yet, and the window
+// opens straight on app.url instead of navigating away from a blank page.
 async function createAndShowWindow(): Promise<void> {
-	browserWindow = createMainWindow();
-	attachWindow(browserWindow);
 	await initProcess();
+	const browserWindow = createMainWindow();
+	attachWindow(browserWindow);
 	setupMenus();
 	setupMainWindow(browserWindow);
 }
 
 async function setup(): Promise<void> {
-	await app.whenReady();
-
-	// keep reference to main window to prevent losing it on GC
-	browserWindow = currentBrowserWindow({ browserWindow });
-	if (!browserWindow) {
-		await createAndShowWindow();
-	}
+	await createAndShowWindow();
 
 	// macOS: re-create window when dock icon clicked and all windows are closed
-	app.on("activate", async () => {
-		if (BrowserWindow.getAllWindows().length === 0) {
+	app.on("activated", async () => {
+		if (currentBrowserWindow({ browserWindow: null }) === null) {
 			await createAndShowWindow();
 		}
 	});

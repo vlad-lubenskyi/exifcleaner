@@ -6,7 +6,7 @@ import {
 	useState,
 } from "react";
 import type { ReactNode } from "react";
-import type { ThemeMode } from "../../domain";
+import type { ThemeMode } from "../../main/domain";
 
 const THEME_CROSSFADE_DURATION_MS = 200;
 

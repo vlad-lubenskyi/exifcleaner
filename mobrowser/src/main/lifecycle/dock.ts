@@ -1,59 +1,56 @@
-import { app, ipcMain, BrowserWindow, nativeImage } from "electron";
-import { defaultBrowserWindow, checkmarkPath } from "../../infrastructure";
-import { isMac, isWindows } from "../../common";
-import { createValidatedListener } from "../ipc/ipc_validation";
+import { dock, ipc } from "@mobrowser/api";
+import { isMac } from "../common";
+import { validated } from "../ipc/ipc_validation";
 import {
 	filesAddedSchema,
 	fileProcessedSchema,
 	allFilesProcessedSchema,
 } from "../ipc/ipc_schemas";
-
-import { IPC_CHANNELS } from "../../common";
+import { FilesServiceDescriptor } from "../gen/ipc_service";
 
 let batchCount = 0;
 let remainingCount = 0;
 
-interface SetupDockEventHandlersParams {
-	getWindow: () => BrowserWindow | null;
-}
+// MōBrowser 2.19 has the macOS Dock badge but no equivalent of Electron's
+// taskbar progress bar, Dock bounce, Windows frame flashing or taskbar overlay
+// icon, so batch progress is shown on the Dock badge only.
+export function setupDockEventHandlers(): void {
+	const filesAdded = validated(filesAddedSchema, async (filesCount) => {
+		storeBatchCount(filesCount);
 
-export function setupDockEventHandlers({
-	getWindow,
-}: SetupDockEventHandlersParams): void {
-	ipcMain.on(
-		IPC_CHANNELS.FILES_ADDED,
-		createValidatedListener(filesAddedSchema, (filesCount) => {
-			storeBatchCount(filesCount);
+		updateDockCount();
+	});
 
-			updateDockAndProgressBar(getWindow());
-			windowsOverlayIcon(getWindow(), false);
-		}),
-	);
+	const fileProcessed = validated(fileProcessedSchema, async () => {
+		storeFilesCount(remainingCount - 1);
 
-	ipcMain.on(
-		IPC_CHANNELS.FILE_PROCESSED,
-		createValidatedListener(fileProcessedSchema, () => {
-			storeFilesCount(remainingCount - 1);
+		// if there are none remaining, let the all finished
+		// event take care of it so we don't double up
+		if (remainingCount > 0) {
+			updateDockCount();
+		}
+	});
 
-			// if there are none remaining, let the all finished
-			// event take care of it so we don't double up
-			if (remainingCount > 0) {
-				updateDockAndProgressBar(getWindow());
-			}
-		}),
-	);
+	const allFilesProcessed = validated(allFilesProcessedSchema, async () => {
+		storeBatchCount(0);
 
-	ipcMain.on(
-		IPC_CHANNELS.ALL_FILES_PROCESSED,
-		createValidatedListener(allFilesProcessedSchema, () => {
-			storeBatchCount(0);
+		updateDockCount();
+	});
 
-			updateDockAndProgressBar(getWindow());
-			updateDockBounce(getWindow());
-			windowsFlashFrame(getWindow());
-			windowsOverlayIcon(getWindow(), true);
-		}),
-	);
+	ipc.registerService(FilesServiceDescriptor, {
+		async NotifyFilesAdded({ count }) {
+			await filesAdded(count);
+			return {};
+		},
+		async NotifyFileProcessed() {
+			await fileProcessed(undefined);
+			return {};
+		},
+		async NotifyAllFilesProcessed() {
+			await allFilesProcessed(undefined);
+			return {};
+		},
+	});
 }
 
 function storeBatchCount(filesCount: number) {
@@ -65,71 +62,11 @@ function storeFilesCount(filesCount: number): void {
 	remainingCount = filesCount > 0 ? filesCount : 0;
 }
 
-function updateDockAndProgressBar(browserWindow: BrowserWindow | null) {
-	updateDockCount();
-	updateProgressBar(browserWindow);
-}
-
 function updateDockCount(): void {
 	if (!isMac()) {
 		return;
 	}
 
-	if (!app.dock) {
-		throw new Error("Could not get a handle on the Mac Dock");
-	}
-
 	// update badge count
-	app.dock.setBadge(remainingCount > 0 ? remainingCount.toString() : "");
-}
-
-function updateProgressBar(browserWindow: BrowserWindow | null): void {
-	browserWindow = defaultBrowserWindow({ browserWindow: null });
-	let ratio =
-		remainingCount <= 0 ? -1 : (batchCount - remainingCount) / batchCount;
-
-	browserWindow.setProgressBar(ratio);
-}
-
-function updateDockBounce(browserWindow: BrowserWindow | null): void {
-	if (!isMac()) {
-		return;
-	}
-	browserWindow = defaultBrowserWindow({ browserWindow: null });
-	if (browserWindow.isFocused()) {
-		// don't bother if the window is already focused
-		return;
-	}
-
-	app.dock?.bounce("critical");
-}
-
-// Window is flashed to inform the user that the window requires
-// attention but that it does not currently have the keyboard focus.
-// https://www.electronjs.org/docs/tutorial/windows-taskbar#flash-frame
-function windowsFlashFrame(browserWindow: BrowserWindow | null): void {
-	if (!isWindows()) {
-		return;
-	}
-	browserWindow = defaultBrowserWindow({ browserWindow });
-	if (browserWindow.isFocused()) {
-		// don't bother if the window is already focused
-		return;
-	}
-
-	browserWindow.flashFrame(true);
-}
-
-function windowsOverlayIcon(
-	browserWindow: BrowserWindow | null,
-	enabled: boolean,
-): void {
-	if (!isWindows()) {
-		return;
-	}
-	browserWindow = defaultBrowserWindow({ browserWindow });
-
-	const icon = enabled ? nativeImage.createFromPath(checkmarkPath()) : null;
-
-	browserWindow.setOverlayIcon(icon, "Finished processing all files");
+	dock.setBadgeText(remainingCount > 0 ? remainingCount.toString() : "");
 }

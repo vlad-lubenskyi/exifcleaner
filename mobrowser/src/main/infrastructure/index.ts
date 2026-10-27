@@ -9,16 +9,17 @@ export { NativeMetadataAdapter } from "./metadata/native_metadata_adapter";
 export { SettingsService } from "./settings_service";
 export { ConsoleLogger } from "./console_logger";
 export { removeXattrs } from "./xattr_service";
-export { exiftoolBinPath, exiftoolConfigPath } from "./electron/binaries";
+export { exiftoolBinPath, exiftoolConfigPath } from "./mobrowser/binaries";
 export {
 	currentBrowserWindow,
 	defaultBrowserWindow,
 	restoreWindowAndFocus,
-} from "./electron/browser_window";
-export { isProd, isDev } from "./electron/env";
-export { resourcesPath, iconPath, checkmarkPath } from "./electron/resources";
+	setMainBrowserWindow,
+} from "./mobrowser/browser_window";
+export { isProd, isDev } from "./mobrowser/env";
+export { resourcesPath, iconPath, checkmarkPath } from "./mobrowser/resources";
 export {
 	i18n,
 	preloadI18nStrings,
 	getI18nStrings,
-} from "./electron/i18n_strings";
+} from "./mobrowser/i18n_strings";

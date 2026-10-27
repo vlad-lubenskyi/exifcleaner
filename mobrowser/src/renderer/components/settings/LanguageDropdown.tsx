@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { LANGUAGE_NAMES } from "../../../domain";
+import { LANGUAGE_NAMES } from "../../../main/domain";
 import { useI18n } from "../../hooks/use_i18n";
 import "../../styles/language_dropdown.css";
 

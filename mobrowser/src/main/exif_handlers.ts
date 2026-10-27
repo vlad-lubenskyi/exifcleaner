@@ -1,53 +1,41 @@
-import { app, ipcMain } from "electron";
+import { ipc } from "@mobrowser/api";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { dirname, join, parse } from "node:path";
 import type { Container } from "./container";
-import { createValidatedHandler } from "./ipc/ipc_validation";
+import { validated } from "./ipc/ipc_validation";
+import { ExifServiceDescriptor } from "./gen/ipc_service";
+import type { RemoveMetadataResult as RemoveMetadataResultMessage } from "./gen/exif";
+import type { RemoveMetadataResult } from "./common/ipc_channels";
 import { exifReadSchema, exifRemoveSchema } from "./ipc/ipc_schemas";
-import { formatExifError } from "../domain";
-import { generateCleanedPath } from "../domain/files/cleaned_path";
+import { formatExifError } from "./domain";
+import { generateCleanedPath } from "./domain/files/cleaned_path";
 import {
 	isRafFile,
 	isRawFile,
 	copyModeLeakCheckDemandOf,
 	requiresVerifiedWrite,
-} from "../domain/files/file_types";
-import { refuseUnsafeRafWrite } from "../domain/files/file_processing_outcome";
+} from "./domain/files/file_types";
+import { refuseUnsafeRafWrite } from "./domain/files/file_processing_outcome";
 import type { OutputTransactionFailure } from "./output_transaction";
-
-const DEV_XATTR_FAILURE_EVENT = "exifcleaner:dev-xattr-failure-path";
-
-let devXattrFailurePath: string | undefined;
-let devXattrFailureListener: ((filePath: unknown) => void) | undefined;
-
-interface DevXattrFailureEventEmitter {
-	on(event: string, listener: (filePath: unknown) => void): unknown;
-	removeListener(event: string, listener: (filePath: unknown) => void): unknown;
-}
 
 export function setupExifHandlers({
 	container,
 }: {
 	container: Container;
 }): void {
-	setupDevXattrFailureBridge();
+	const readMetadata = validated(exifReadSchema, async (filePath) => {
+		const result = await container.readMetadata.execute({ filePath });
+		if (result.ok) {
+			return result.value;
+		}
+		throw new Error(formatExifError(result.error));
+	});
 
-	ipcMain.handle(
-		"exif:read",
-		createValidatedHandler(exifReadSchema, async (filePath) => {
-			const result = await container.readMetadata.execute({ filePath });
-			if (result.ok) {
-				return result.value;
-			}
-			throw new Error(formatExifError(result.error));
-		}),
-	);
-
-	ipcMain.handle(
-		"exif:remove",
-		createValidatedHandler(exifRemoveSchema, async (filePath) => {
+	const removeMetadata = validated<string, RemoveMetadataResult>(
+		exifRemoveSchema,
+		async (filePath) => {
 			const settings = container.settings.get();
 			if (isRafFile({ filename: filePath })) {
 				return refuseUnsafeRafWrite({ filePath });
@@ -135,8 +123,63 @@ export function setupExifHandlers({
 				});
 			}
 			return { success: false, error: formatExifError(result.error) };
-		}),
+		},
 	);
+
+	ipc.registerService(ExifServiceDescriptor, {
+		async ReadMetadata({ path }) {
+			return { tags: await readMetadata(path) };
+		},
+		async RemoveMetadata({ path }) {
+			return toRemoveMetadataResultMessage(await removeMetadata(path));
+		},
+	});
+}
+
+// Flattens the RemoveMetadataResult union into its protobuf message; the
+// renderer api (src/renderer/api/window_api.ts) rebuilds the union.
+function toRemoveMetadataResultMessage(
+	result: RemoveMetadataResult,
+): RemoveMetadataResultMessage {
+	const message: RemoveMetadataResultMessage = {
+		success: result.success,
+		outputPath: "",
+		wasForcedCopy: false,
+		wroteFile: false,
+		outputSize: 0,
+		detail: "",
+		refusalReason: "",
+		originalPath: "",
+	};
+	if (result.success) {
+		return {
+			...message,
+			outputPath: result.outputPath,
+			wasForcedCopy: result.wasForcedCopy,
+			wroteFile: result.wroteFile,
+			outputSize: result.outputSize,
+		};
+	}
+	if (!("failureKind" in result)) {
+		return { ...message, error: result.error };
+	}
+	if (result.failureKind === "refused") {
+		return {
+			...message,
+			failureKind: result.failureKind,
+			detail: result.detail,
+			refusalReason: result.refusalReason,
+			originalPath: result.originalPath,
+		};
+	}
+	return {
+		...message,
+		failureKind: result.failureKind,
+		detail: result.detail,
+		...(result.residualPath === undefined
+			? {}
+			: { residualPath: result.residualPath }),
+	};
 }
 
 async function applyXattrPostcondition({
@@ -163,14 +206,6 @@ async function applyXattrPostcondition({
 		};
 	}
 
-	if (devXattrFailurePath === actualOutputPath) {
-		devXattrFailurePath = undefined;
-		return xattrFailureResult({
-			actualOutputPath,
-			error: new Error("deterministic development failure"),
-		});
-	}
-
 	try {
 		await container.removeXattrCommand.execute({ filePath: actualOutputPath });
 	} catch (error) {
@@ -185,29 +220,6 @@ async function applyXattrPostcondition({
 		wroteFile,
 		outputSize,
 	};
-}
-
-function setupDevXattrFailureBridge(): void {
-	const eventEmitter = app as unknown as DevXattrFailureEventEmitter;
-	devXattrFailurePath = undefined;
-	if (devXattrFailureListener !== undefined) {
-		eventEmitter.removeListener(
-			DEV_XATTR_FAILURE_EVENT,
-			devXattrFailureListener,
-		);
-		devXattrFailureListener = undefined;
-	}
-
-	if (app.isPackaged !== false || process.env.NODE_ENV !== "development") {
-		return;
-	}
-
-	devXattrFailureListener = (filePath: unknown): void => {
-		if (typeof filePath === "string") {
-			devXattrFailurePath = filePath;
-		}
-	};
-	eventEmitter.on(DEV_XATTR_FAILURE_EVENT, devXattrFailureListener);
 }
 
 function xattrFailureResult({

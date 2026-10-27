@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+import "common.proto";
+
+message RevealTargets {
+  string cleaned_path = 1;
+  string original_path = 2;
+}
+
+service RevealService {
+  rpc ShowInFolder(FilePath) returns (SuccessWithError);
+  rpc ShowContextMenu(RevealTargets) returns (Success);
+}

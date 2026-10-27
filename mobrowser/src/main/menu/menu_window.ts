@@ -1,48 +1,16 @@
-import type { MenuItemConstructorOptions } from "electron";
+import { Menu } from "@mobrowser/api";
 import { i18n } from "../i18n";
-import { isMac } from "../../common";
+import { isMac } from "../common";
 
-export function windowMenuTemplate(): MenuItemConstructorOptions {
-	return {
+// Minimize and Zoom are role items labelled by MōBrowser. Electron's macOS
+// "Bring All to Front" and window list roles have no counterpart.
+export function windowMenuTemplate(): Menu {
+	return new Menu({
 		label: i18n({ key: "menu.window.name" }),
-		submenu: [
-			{
-				label: isMac()
-					? i18n({ key: "menu.window.minimize-mac" })
-					: i18n({ key: "menu.window.minimize" }),
-				role: "minimize",
-			},
-			{
-				label: isMac()
-					? i18n({ key: "menu.window.zoom-mac" })
-					: i18n({ key: "menu.window.zoom" }),
-				role: "zoom",
-			},
-			...(isMac() ? macSubmenu() : defaultSubmenu()),
+		items: [
+			"minimizeWindow",
+			"maximizeWindow",
+			...(isMac() ? [] : (["closeWindow"] as const)),
 		],
-	};
-}
-
-function macSubmenu(): MenuItemConstructorOptions[] {
-	return [
-		{ type: "separator" },
-		{
-			label: i18n({ key: "menu.window.front" }),
-			role: "front",
-		},
-		{ type: "separator" },
-		{
-			label: i18n({ key: "menu.window.window" }),
-			role: "window",
-		},
-	];
-}
-
-function defaultSubmenu(): MenuItemConstructorOptions[] {
-	return [
-		{
-			label: i18n({ key: "menu.window.close" }),
-			role: "close",
-		},
-	];
+	});
 }

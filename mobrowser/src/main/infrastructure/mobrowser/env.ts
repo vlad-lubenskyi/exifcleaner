@@ -1,7 +1,7 @@
-import { app } from "electron";
+import { app } from "@mobrowser/api";
 
 export function isProd(): boolean {
-	return app.isPackaged;
+	return app.packaged;
 }
 
 export function isDev(): boolean {

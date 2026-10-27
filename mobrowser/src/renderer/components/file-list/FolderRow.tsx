@@ -1,8 +1,8 @@
 // Folder grouping row with collapsible chevron toggle and discovery status.
 
 import type { FolderDiscoveryStatus } from "../../contexts/AppContext";
-import { middleTruncatePath } from "../../../domain";
-import { assertNever } from "../../../common/types";
+import { middleTruncatePath } from "../../../main/domain";
+import { assertNever } from "../../../main/common/types";
 import { ChevronIcon } from "../icons/ChevronIcon";
 import { useI18n } from "../../hooks/use_i18n";
 

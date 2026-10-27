@@ -1,26 +1,25 @@
-import { shell } from "electron";
-import type { BrowserWindow } from "electron";
+import { workspace } from "@mobrowser/api";
+import type { BrowserWindow } from "@mobrowser/api";
 
 // Accepts an optional openExternal function for testability.
-// In production, defaults to shell.openExternal.
+// In production, defaults to workspace.openUrl.
 export function hardenNavigation(
 	win: BrowserWindow,
 	openExternal?: (url: string) => void,
 ): void {
-	const openUrl = openExternal ?? ((url: string) => shell.openExternal(url));
+	const openUrl = openExternal ?? ((url: string) => workspace.openUrl(url));
 
-	win.webContents.on("will-navigate", (event, url) => {
-		const isDevAllowed =
-			process.env.NODE_ENV !== "production" &&
-			url.startsWith("http://localhost:");
-		const isProdAllowed = url.startsWith("file://");
-		if (!isDevAllowed && !isProdAllowed) {
-			console.warn(`[security] Blocked navigation to: ${url}`);
-			event.preventDefault();
+	// Only the app's own content may load: the bundled renderer, or the Vite
+	// dev server in `npm run dev` (both are trusted origins to MōBrowser).
+	win.browser.handle("navigation", (params) => {
+		if (params.isTrusted || params.isAppControlled) {
+			return "proceed";
 		}
+		console.warn(`[security] Blocked navigation to: ${params.url}`);
+		return "cancel";
 	});
 
-	win.webContents.setWindowOpenHandler(({ url }) => {
+	win.browser.handle("openPopup", ({ url }) => {
 		try {
 			const parsed = new URL(url);
 			if (parsed.protocol === "https:") {
@@ -29,6 +28,6 @@ export function hardenNavigation(
 		} catch {
 			// Invalid URL, ignore
 		}
-		return { action: "deny" };
+		return "block";
 	});
 }

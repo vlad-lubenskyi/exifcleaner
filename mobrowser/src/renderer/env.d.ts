@@ -1,8 +1,8 @@
-import type { ElectronApi } from "../preload/api_types";
+import type { WindowApi } from "./api/api_types";
 
 declare global {
 	interface Window {
-		api: ElectronApi;
+		api: WindowApi;
 	}
 }
 
